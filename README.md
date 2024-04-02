@@ -1,1 +1,1 @@
-# cz4034-information-retrival
+# cz4034-information-retrieval
