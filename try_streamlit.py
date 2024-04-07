@@ -4,6 +4,8 @@ from urllib.parse import urlencode
 import pandas as pd
 from datetime import datetime, timedelta
 import pysolr
+from wordcloud import WordCloud, STOPWORDS
+import matplotlib.pyplot as plt
 
 # To Do
 # Remove "deleted" comments from list before displaying
@@ -109,6 +111,34 @@ def main():
                         for i, comment in enumerate(post_info['comments'], start=1):
                             comment_str = str(comment).strip("['']").replace("'", "")
                             st.markdown(f"• {comment_str}")
+
+            # word cloud
+            df_search = pd.DataFrame(search_results)
+            stopwords = set(STOPWORDS)
+            wordcloud = WordCloud(
+                background_color='white',
+                stopwords=stopwords,
+                max_words=200,
+                max_font_size=40,
+                scale = 3,
+                random_state=1
+            ).generate(str(df_search["PostTitle"].unique())) # word cloud from post title column
+            plt.axis('off')
+            fig = plt.figure(1, figsize=(7, 7))
+            fig.suptitle("Word Cloud", fontsize=10)
+            fig.subplots_adjust(top=2.4)
+            plt.imshow(wordcloud)
+            st.pyplot(fig)
+
+            # bar chart (remove if not needed)
+            df_small = df_search[["PostID", "PostAuthor"]].drop_duplicates()
+            df_grouped = df_small.groupby(by=["PostAuthor"], as_index=False).size()
+            df_sorted = df_grouped.sort_values(by="size", ascending=False)
+            df_sorted = df_sorted.rename(columns={"PostAuthor":"Top post authors", "size":"Number of posts"})
+            st.bar_chart(df_sorted.head(10), x="Top post authors", y="Number of posts")
+            
+            # pie chart of positive, negative, neutral
+        
         else:
             st.write("No results found.")
 
