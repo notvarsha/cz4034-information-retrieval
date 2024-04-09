@@ -15,12 +15,11 @@ import numpy as np
 
 
 # To Do
-# Date range doesnt work
-# minimum upvotes work
 # sort need choose bwt date and upvotes
 # Style each reddit post nicer
 # Spell check (not sure if already have) 
-#
+# More like this feature
+# Add images/video using reddit url
 
 # Define function to query Solr
 def search_posts(query, selected_subreddits=["All"], min_upvotes=None, upvotes_sort='desc', start_date=None, end_date=None, date_sort='desc'):
@@ -52,7 +51,6 @@ def search_posts(query, selected_subreddits=["All"], min_upvotes=None, upvotes_s
         'wt': 'json'
     }
 
-
     # Search by upvotes
     if min_upvotes is not None:
         params['fq'] = f'PostUpvotes:[{min_upvotes} TO *]'
@@ -65,10 +63,11 @@ def search_posts(query, selected_subreddits=["All"], min_upvotes=None, upvotes_s
     
     # For testing
     url = 'http://localhost:8983/solr/crypto/select?' + urlencode(params)
-    #st.write("Query URL:", url)
+    st.write("Query URL:", url)
 
     #response = requests.get('http://localhost:8983/solr/crypto/select?', params=params)
     response = requests.get(url)
+    #st.write(response.status_code)
 
     if response.status_code == 200:
         return response.json()['response']['docs']
@@ -97,9 +96,6 @@ def main():
         date_sort = 'desc'
     else:
         date_sort = 'asc'
-    
-    start_date = None
-    end_date = None
 
     # Filter by subreddit
     subreddits = ["All", "Cryptocurrency", "CryptocurrencyNews", "CryptocurrencyMemes", "CryptoIndia", 
@@ -123,28 +119,41 @@ def main():
             # Obtain and group info and comments for each post
             grouped_comments = {}
             for result in search_results:
+                post_content = str(result.get('PostContent')).strip("[]'")
                 post_title = result.get('PostTitle')
                 comment = result.get('PostComments')
                 post_author = str(result.get('PostAuthor')).strip("[]'")  
                 post_upvotes = str(result.get('PostUpvotes')).strip("[]'")
-                post_time = str(result.get('PostTime')).strip("[]'")
+                time_str = str(result.get('PostTime')).strip("[]'")
+                time_obj = datetime.strptime(time_str, "%Y-%m-%dT%H:%M:%SZ")
+                post_time = time_obj.strftime("%Y-%m-%d %H:%M:%S")
                 subreddit = str(result.get('Subreddit')).strip("[]'")
 
                 if isinstance(post_title, list):
                     post_title = post_title[0]
                 if post_title not in grouped_comments:
-                    grouped_comments[post_title] = {'author': post_author, 'subreddit':subreddit, 'upvotes': post_upvotes, 'time': post_time, 'comments': []}
+                    grouped_comments[post_title] = {'author': post_author, 'content': post_content, 'subreddit':subreddit, 'upvotes': post_upvotes, 'time': post_time, 'comments': []}
                 grouped_comments[post_title]['comments'].append(comment)
 
             # Display each post in a container
             for post_title, post_info in grouped_comments.items():
                 container = st.container(border=True)
                 with container:
-                    st.markdown(f"**Post Title:** {post_title}")
-                    st.markdown(f"**Subreddit:** {subreddit}")
-                    st.markdown(f"**Author:** {post_info['author']}")
-                    st.markdown(f"**Upvotes:** {post_info['upvotes']}")
-                    st.markdown(f"**Time Posted:** {post_info['time']}")
+                    # st.markdown(f"**r/:** {subreddit}")
+                    # st.markdown(f"{post_info['time']}")
+                    #st.markdown(f"**Post Title:** {post_title}")
+
+                    # st.image('crypto_icon.png', width=20)
+                    st.markdown(f"<div style='display: flex; justify-content: space-between;'>"
+            f"<div style='font-size: 16px; display: flex; align-items: center;'>"
+            f"<img src='https://styles.redditmedia.com/t5_2wlj3/styles/communityIcon_6ddnoarvwchb1.png' style='width: 20px; height: 20px; margin-right: 5px;'/>"
+            f"r/{subreddit}</div>"
+            f"<div style='text-align: right; font-size: 16px;'>{post_info['time']}<br></div>"
+            f"</div>", unsafe_allow_html=True)
+                    st.markdown(f"<p style='font-size:25px'><strong>{post_title}</strong></p>", unsafe_allow_html=True)
+                    st.markdown(f"{post_info['content']}")
+                    st.markdown(f":arrow_up: {post_info['upvotes']} :arrow_down:")
+                    # st.markdown(f"u/{post_info['author']}")
 
                     # Display comments in a dropdown
                     with st.expander("View Comments"):
@@ -152,8 +161,6 @@ def main():
                             comment_str = str(comment).strip("['']").replace("'", "")
                             if comment_str not in ['deleted', 'removed']:
                                 st.markdown(f"• {comment_str}")
-
-            
 
             # # bar chart (remove if not needed)
             # df_small = df_search[["PostID", "PostAuthor"]].drop_duplicates()
