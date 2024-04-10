@@ -15,14 +15,12 @@ import numpy as np
 
 
 # To Do
-# sort need choose bwt date and upvotes
-# Style each reddit post nicer
 # Spell check (not sure if already have) 
 # More like this feature
 # Add images/video using reddit url
 
 # Define function to query Solr
-def search_posts(query, selected_subreddits=["All"], min_upvotes=None, upvotes_sort='desc', start_date=None, end_date=None, date_sort='desc'):
+def search_posts(query, selected_subreddits=["All"], min_upvotes=None, start_date=None, end_date=None, sort_option='Upvotes', sort='desc'):
     # if query is empty q should be *:*
     subreddit_query = ""
     if "All" not in selected_subreddits:
@@ -55,11 +53,10 @@ def search_posts(query, selected_subreddits=["All"], min_upvotes=None, upvotes_s
     if min_upvotes is not None:
         params['fq'] = f'PostUpvotes:[{min_upvotes} TO *]'
     # Sort by upvotes
-    if upvotes_sort:
-        params['sort'] = f'PostUpvotes {upvotes_sort}'
-
-    if date_sort:
-       params['sort'] = f'PostTime {date_sort}'
+    if sort_option == "Upvotes":
+        params['sort'] = f'PostUpvotes {sort}'
+    else:
+       params['sort'] = f'PostTime {sort}'
     
     # For testing
     url = 'http://localhost:8983/solr/crypto/select?' + urlencode(params)
@@ -79,23 +76,25 @@ def main():
     st.title("Cryptocurrency Reddit Search")
     text_search = st.text_input("Input Query", value="")
 
-    # Filter and sort by upvotes
-    min_upvotes = st.sidebar.number_input("Minimum Upvotes", value=0, step=1)
-    sort_order_upvotes = st.sidebar.selectbox("Sort by UpVotes", ["Descending", "Ascending"])
-    if sort_order_upvotes == "Descending":
-        upvotes_sort = 'desc'
-    else:
-        upvotes_sort = 'asc'
-
-    # Filer and sort by Date
-    default_start_date = datetime.now()
-    start_date = st.sidebar.date_input("Start Date", value=default_start_date)
+    # Filter and sort by upvotes and dates
+    start_date = st.sidebar.date_input("Start Date", value=datetime.now())
     end_date = st.sidebar.date_input("End Date")
-    date_sort_order = st.sidebar.selectbox("Sort by Date", ["Latest", "Oldest"])
-    if date_sort_order == "Latest":
-        date_sort = 'desc'
+    sort_option = st.sidebar.selectbox("Sort by", ["Date Posted", "Upvotes"])
+
+    if sort_option == "Date Posted":
+        date_sort_order = st.sidebar.selectbox("Sort by Date Posted", ["Latest", "Oldest"])
+        if date_sort_order == "Latest":
+            sort = 'desc'
+        else:
+            sort = 'asc'
     else:
-        date_sort = 'asc'
+        sort_order_upvotes = st.sidebar.selectbox("Sort by UpVotes", ["Descending", "Ascending"])
+        if sort_order_upvotes == "Descending":
+            sort = 'desc'
+        else:
+            sort = 'asc'
+
+    min_upvotes = st.sidebar.number_input("Minimum Upvotes", value=0, step=1)
 
     # Filter by subreddit
     subreddits = ["All", "Cryptocurrency", "CryptocurrencyNews", "CryptocurrencyMemes", "CryptoIndia", 
@@ -110,12 +109,14 @@ def main():
         start_date_str = start_date.strftime('%Y-%m-%dT00:00:00Z') if start_date else None
         end_date_str = end_date.strftime('%Y-%m-%dT23:59:59Z') if end_date else None
 
-        search_results = search_posts(text_search, selected_subreddits, min_upvotes=min_upvotes, upvotes_sort=upvotes_sort, start_date=start_date_str, end_date=end_date_str, date_sort=date_sort)
+        search_results = search_posts(text_search, selected_subreddits, min_upvotes=min_upvotes, start_date=start_date_str, end_date=end_date_str, sort_option=sort_option, sort=sort)
         if search_results:
-            # Calculate sentiment distribution and Word Cloud
-            data_analytics(search_results)
+            tab1, tab2 = st.tabs(["Results :mag:", "Stats :bar_chart:"])
 
-            st.write("Number of results:", len(search_results))
+            with tab2:
+                # Calculate sentiment distribution and Word Cloud
+                data_analytics(search_results)
+            
             # Obtain and group info and comments for each post
             grouped_comments = {}
             for result in search_results:
@@ -135,32 +136,30 @@ def main():
                     grouped_comments[post_title] = {'author': post_author, 'content': post_content, 'subreddit':subreddit, 'upvotes': post_upvotes, 'time': post_time, 'comments': []}
                 grouped_comments[post_title]['comments'].append(comment)
 
-            # Display each post in a container
-            for post_title, post_info in grouped_comments.items():
-                container = st.container(border=True)
-                with container:
-                    # st.markdown(f"**r/:** {subreddit}")
-                    # st.markdown(f"{post_info['time']}")
-                    #st.markdown(f"**Post Title:** {post_title}")
+            with tab1:
+                st.write("Number of results:", len(search_results))
+                # Display each post in a container
+                for post_title, post_info in grouped_comments.items():
+                    container = st.container(border=True)
+                    with container:
+                        st.markdown(f"<div style='display: flex; justify-content: space-between;'>"
+                                    f"<div style='font-size: 16px; display: flex; align-items: center;'>"
+                                    f"<img src='https://styles.redditmedia.com/t5_2wlj3/styles/communityIcon_6ddnoarvwchb1.png' style='width: 20px; height: 20px; margin-right: 5px;'/>"
+                                    f"r/{subreddit}</div>"
+                                    f"<div style='text-align: right; font-size: 16px;'>{post_info['time']}<br></div>"
+                                    f"</div>", unsafe_allow_html=True)
+                        st.markdown(f"<p style='font-size:25px'><strong>{post_title}</strong></p>", unsafe_allow_html=True)
+                        st.markdown(f"{post_info['content']}")
+                        st.markdown(f":small_red_triangle: {post_info['upvotes']} :small_red_triangle_down:")
+                        #st.markdown(f":arrow_up: {post_info['upvotes']} :arrow_down:")
 
-                    # st.image('crypto_icon.png', width=20)
-                    st.markdown(f"<div style='display: flex; justify-content: space-between;'>"
-            f"<div style='font-size: 16px; display: flex; align-items: center;'>"
-            f"<img src='https://styles.redditmedia.com/t5_2wlj3/styles/communityIcon_6ddnoarvwchb1.png' style='width: 20px; height: 20px; margin-right: 5px;'/>"
-            f"r/{subreddit}</div>"
-            f"<div style='text-align: right; font-size: 16px;'>{post_info['time']}<br></div>"
-            f"</div>", unsafe_allow_html=True)
-                    st.markdown(f"<p style='font-size:25px'><strong>{post_title}</strong></p>", unsafe_allow_html=True)
-                    st.markdown(f"{post_info['content']}")
-                    st.markdown(f":arrow_up: {post_info['upvotes']} :arrow_down:")
-                    # st.markdown(f"u/{post_info['author']}")
 
-                    # Display comments in a dropdown
-                    with st.expander("View Comments"):
-                        for i, comment in enumerate(post_info['comments'], start=1):
-                            comment_str = str(comment).strip("['']").replace("'", "")
-                            if comment_str not in ['deleted', 'removed']:
-                                st.markdown(f"• {comment_str}")
+                        # Display comments in a dropdown
+                        with st.expander("View Comments"):
+                            for i, comment in enumerate(post_info['comments'], start=1):
+                                comment_str = str(comment).strip("['']").replace("'", "")
+                                if comment_str not in ['deleted', 'removed']:
+                                    st.markdown(f"• {comment_str}")
 
             # # bar chart (remove if not needed)
             # df_small = df_search[["PostID", "PostAuthor"]].drop_duplicates()
