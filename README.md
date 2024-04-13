@@ -25,4 +25,4 @@
 - Download the pre-trained models, corpora and other resources that NLTK uses by running <code>nltk.download('all')</code> in the terminal
 - Unzip the dataset.zip file and move the combined_excel_dataset into the same folder as the main.py file
 - Run the python file
-- If the main() python file cannot run due to any issues, the final_results.csv file in the the dataset.zip file contains the data after running the main.py file
+- If the main.py python file cannot run due to any issues, the final_results.csv file in the the dataset.zip file contains the data after running the main.py file
