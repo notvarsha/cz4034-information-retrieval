@@ -14,14 +14,8 @@ from PIL import Image
 import numpy as np
 
 
-# To Do
-# Spell check (not sure if already have) 
-# More like this feature
-# Add images/video using reddit url
-
 # Define function to query Solr
 def search_posts(query, selected_subreddits=["All"], min_upvotes=None, start_date=None, end_date=None, sort_option='Upvotes', sort='desc'):
-    # if query is empty q should be *:*
     subreddit_query = ""
     if "All" not in selected_subreddits:
         subreddit_query = " OR ".join([f'Subreddit:{sub}' for sub in selected_subreddits])
@@ -58,19 +52,31 @@ def search_posts(query, selected_subreddits=["All"], min_upvotes=None, start_dat
     else:
        params['sort'] = f'PostTime {sort}'
     
-    # For testing
-    url = 'http://localhost:8983/solr/crypto/select?' + urlencode(params)
-    st.write("Query URL:", url)
-
-    #response = requests.get('http://localhost:8983/solr/crypto/select?', params=params)
+    url = 'http://localhost:8983/solr/new_core/select?' + urlencode(params)
     response = requests.get(url)
-    #st.write(response.status_code)
+    # st.write(url)
 
     if response.status_code == 200:
         return response.json()['response']['docs']
     else:
         return []
 
+def spellcheck(query):
+    params = {
+        'q.op': 'OR',
+        'q': query,
+        'spellcheck': 'true',
+        'wt': 'json'
+    }
+    url = 'http://localhost:8983/solr/new_core/spell?' + urlencode(params)
+    response = requests.get(url)
+    if response.status_code == 200:
+        data = response.json()
+        suggestions = data['spellcheck']['suggestions']
+        return [item['word'] for item in suggestions[1]['suggestion'][:5]]
+    else:
+        return []
+    
 
 def main():
     st.title("Cryptocurrency Reddit Search")
@@ -88,7 +94,7 @@ def main():
         else:
             sort = 'asc'
     else:
-        sort_order_upvotes = st.sidebar.selectbox("Sort by UpVotes", ["Descending", "Ascending"])
+        sort_order_upvotes = st.sidebar.selectbox("Sort by Upvotes", ["Descending", "Ascending"])
         if sort_order_upvotes == "Descending":
             sort = 'desc'
         else:
@@ -110,6 +116,12 @@ def main():
         end_date_str = end_date.strftime('%Y-%m-%dT23:59:59Z') if end_date else None
 
         search_results = search_posts(text_search, selected_subreddits, min_upvotes=min_upvotes, start_date=start_date_str, end_date=end_date_str, sort_option=sort_option, sort=sort)
+        # suggestions = spellcheck(text_search)
+
+        # if suggestions and len(search_results)==0:
+        #     formatted_suggestions = [f"<span style='font-weight: bold; color: red;'>{suggestion}</span>" for suggestion in suggestions]
+        #     st.markdown("Did you mean: " + ", ".join(formatted_suggestions), unsafe_allow_html=True)
+
         if search_results:
             tab1, tab2 = st.tabs(["Results :mag:", "Stats :bar_chart:"])
 
@@ -120,7 +132,7 @@ def main():
             # Obtain and group info and comments for each post
             grouped_comments = {}
             for result in search_results:
-                post_content = str(result.get('PostContent')).strip("[]'")
+                post_content = str(result.get('PostContent')).strip("['']").replace('"', '')
                 post_title = result.get('PostTitle')
                 comment = result.get('PostComments')
                 post_author = str(result.get('PostAuthor')).strip("[]'")  
@@ -130,11 +142,12 @@ def main():
                 post_time = time_obj.strftime("%Y-%m-%d %H:%M:%S")
                 subreddit = str(result.get('Subreddit')).strip("[]'")
 
-                if isinstance(post_title, list):
-                    post_title = post_title[0]
-                if post_title not in grouped_comments:
-                    grouped_comments[post_title] = {'author': post_author, 'content': post_content, 'subreddit':subreddit, 'upvotes': post_upvotes, 'time': post_time, 'comments': []}
-                grouped_comments[post_title]['comments'].append(comment)
+                if post_author!='jonbristow':
+                    if isinstance(post_title, list):
+                        post_title = post_title[0]
+                    if post_title not in grouped_comments:
+                            grouped_comments[post_title] = {'author': post_author, 'content': post_content, 'subreddit':subreddit, 'upvotes': post_upvotes, 'time': post_time, 'comments': []}
+                    grouped_comments[post_title]['comments'].append(comment)
 
             with tab1:
                 st.write("Number of results:", len(search_results))
@@ -149,39 +162,47 @@ def main():
                                     f"<div style='text-align: right; font-size: 16px;'>{post_info['time']}<br></div>"
                                     f"</div>", unsafe_allow_html=True)
                         st.markdown(f"<p style='font-size:25px'><strong>{post_title}</strong></p>", unsafe_allow_html=True)
-                        st.markdown(f"{post_info['content']}")
-                        st.markdown(f":small_red_triangle: {post_info['upvotes']} :small_red_triangle_down:")
-                        #st.markdown(f":arrow_up: {post_info['upvotes']} :arrow_down:")
 
+                        # Display Video, Image or Text
+                        if post_info['content'].startswith('https://v.redd.it/'):
+                            st.video(post_info['content'])
+                        elif post_info['content'].startswith('https://i.redd.it/'):
+                            st.image(post_info['content'])
+                        else:
+                            st.markdown(f"{post_info['content']}")
+                            
+                        st.markdown(f":small_red_triangle: {post_info['upvotes']} :small_red_triangle_down:")
 
                         # Display comments in a dropdown
                         with st.expander("View Comments"):
                             for i, comment in enumerate(post_info['comments'], start=1):
-                                comment_str = str(comment).strip("['']").replace("'", "")
+                                comment_str = str(comment).strip("['']").replace('"', '')
                                 if comment_str not in ['deleted', 'removed']:
                                     st.markdown(f"• {comment_str}")
-
-            # # bar chart (remove if not needed)
-            # df_small = df_search[["PostID", "PostAuthor"]].drop_duplicates()
-            # df_grouped = df_small.groupby(by=["PostAuthor"], as_index=False).size()
-            # df_sorted = df_grouped.sort_values(by="size", ascending=False)
-            # df_sorted = df_sorted.rename(columns={"PostAuthor":"Top post authors", "size":"Number of posts"})
-            # st.bar_chart(df_sorted.head(10), x="Top post authors", y="Number of posts")
-                    
         else:
             st.write("No results found.")
 
+        
+
+
 def data_analytics(search_results):
     # Sentiment Analysis
-    sentiments = [result.get('sentiment') for result in search_results]
+    sentiments = [result.get('Sentiment') for result in search_results]
     sentiment_counts = pd.Series(sentiments).value_counts()
     labels = ['Negative', 'Neutral', 'Positive']
-    sizes = [sentiment_counts[-1], sentiment_counts[0], sentiment_counts[1]]
+    sizes = [
+    sentiment_counts.get(-1, 0),  # Negative sentiment, default to 0 if not found
+    sentiment_counts.get(0, 0),   # Neutral sentiment, default to 0 if not found
+    sentiment_counts.get(1, 0)    # Positive sentiment, default to 0 if not found
+    ]
+    filtered_labels = [label for label, count in zip(labels, sizes) if count > 0]
+    filtered_sizes = [size for size in sizes if size > 0]
+    
     palette_color = seaborn.color_palette('Pastel1')
     
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6))
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5))
 
-    ax1.pie(sizes, labels=labels, colors=palette_color, autopct='%1.1f%%', startangle=0)
+    ax1.pie(filtered_sizes, labels=filtered_labels, colors=palette_color, autopct='%1.1f%%', startangle=0)
     ax1.axis('equal')
 
     # Word Cloud
