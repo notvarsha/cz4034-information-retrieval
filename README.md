@@ -18,6 +18,7 @@
 - Navigate to the Indexing folder
 - Ensure you have Streamlit installed by running <code>pip install streamlit</code>
 - Launch the frontend using <code>streamlit run indexing_ui.py</code> in your terminal
+- The results of the five sample queries are in the Indexing folder
 
 ## Classification
 - Nagivate to the Classifications followed by the preprocessing_and_NLTK folder
