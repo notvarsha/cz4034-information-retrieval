@@ -36,7 +36,7 @@ def main():
     # classification report
     print(classification_report(data_eval['ManuallyLabeledSentiments'], data_eval['NLTK_Sentiment']))
 
-    print(data)
+    #print(data)
 
 def preprocess_text(text_data):
     
