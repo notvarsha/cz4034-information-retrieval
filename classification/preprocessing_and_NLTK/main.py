@@ -13,7 +13,7 @@ from sklearn.metrics import classification_report
 def main():
     # Main entry point
     # Load the amazon review dataset
-    data = pd.read_csv('combined_excel_dataset.csv', nrows=3000) #nrows= 20
+    data = pd.read_csv('combined_excel_dataset.csv')
 
     # Remove duplicates before pre-processing
     data = data.drop_duplicates(subset='Post Comments', keep="first")
@@ -36,7 +36,7 @@ def main():
     # classification report
     print(classification_report(data_eval['ManuallyLabeledSentiments'], data_eval['NLTK_Sentiment']))
 
-    print(data)
+    #print(data)
 
 def preprocess_text(text_data):
     
