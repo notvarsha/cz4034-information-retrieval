@@ -23,5 +23,6 @@
 - Nagivate to the Classifications followed by the preprocessing_and_NLTK folder
 - Ensure that the relevant packages such as nltk, pandas, re, scikit-learn are installed by running <code>pip install nltk, pandas, re, scikit-learn</code>
 - Download the pre-trained models, corpora and other resources that NLTK uses by running <code>nltk.download('all')</code> in the terminal
-- Unzip the dataset and move the combined_excel_dataset into the same folder as the main.py file
+- Unzip the dataset.zip file and move the combined_excel_dataset into the same folder as the main.py file
 - Run the python file
+- If the python file cannot run due to any issues, the final_results.csv file in the the dataset.zip file contains the data after running the main.py file
