@@ -1,6 +1,9 @@
 # cz4034-information-retrieval
 
 ## Crawling
+- Get your Client ID, Client Secret by following this link https://docs.google.com/document/d/1wHvqQwCYdJrQg4BKlGIVDLksPN0KpOnJWniT6PbZSrI/edit
+- Insert your new credentials with this client id, secret, username and password
+- Run the whole jupyter notebook Reddit Crypto Webcrawling
 
 ## Indexing
 - Begin by downloading the Solr 8.11.3 binary release from the official Solr website (https://solr.apache.org/downloads.html).
